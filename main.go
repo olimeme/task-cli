@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/olimeme/constants"
 	"github.com/olimeme/handlers"
@@ -17,11 +18,20 @@ func main() {
 
 	switch args[0] {
 	case "add":
-		fmt.Println("Adding task...")
+		if len(args) < 2 {
+			fmt.Printf("Usage: %s add \"<description>\"\n", constants.PROGRAM_PREFIX)
+		}
+		description := strings.Trim(args[1], "\"")
+
+		err := handlers.AddTask(description)
+
+		if err != nil {
+			fmt.Println(err)
+		}
 	case "update":
-		fmt.Println("Updating task...")
+		//handlers.UpdateTask(id, description)
 	case "delete":
-		fmt.Println("Deleting task...")
+		//handlers.DeleteTask(id)
 	case "help":
 		handlers.HelpManual()
 	default:
