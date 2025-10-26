@@ -3,14 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
-)
 
-const PROGRAM_PREFIX = "task-cli"
+	"github.com/olimeme/constants"
+	"github.com/olimeme/handlers"
+)
 
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		fmt.Printf("Usage: %s <command>", PROGRAM_PREFIX)
+		fmt.Printf("Usage: %s <command>", constants.PROGRAM_PREFIX)
 		return
 	}
 
@@ -21,7 +22,10 @@ func main() {
 		fmt.Println("Updating task...")
 	case "delete":
 		fmt.Println("Deleting task...")
+	case "help":
+		handlers.HelpManual()
 	default:
-		fmt.Println("Unknown command:", args[0])
+		fmt.Printf("task-cli %s: unknown command\n", args[0])
+		fmt.Printf("Run '%s help' for usage.", constants.PROGRAM_PREFIX)
 	}
 }
