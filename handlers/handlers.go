@@ -11,6 +11,16 @@ import (
 )
 
 func loadTasks() (map[string][]map[string]interface{}, error) {
+	if _, err := os.Stat(constants.FILENAME); os.IsNotExist(err) {
+		empty := map[string][]map[string]interface{}{
+			"tasks": {},
+		}
+		if err := saveTasks(empty); err != nil {
+			return nil, err
+		}
+		return empty, nil
+	}
+
 	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
@@ -26,8 +36,13 @@ func loadTasks() (map[string][]map[string]interface{}, error) {
 		"tasks": {},
 	}
 
-	if len(byteValue) > 0 {
-		if err := json.Unmarshal(byteValue, &data); err != nil {
+	if len(byteValue) == 0 {
+		return data, nil
+	}
+
+	if err := json.Unmarshal(byteValue, &data); err != nil {
+		fmt.Println("Warning: task file corrupted — resetting tasks.json")
+		if err := saveTasks(data); err != nil {
 			return nil, err
 		}
 	}
@@ -40,7 +55,14 @@ func saveTasks(data map[string][]map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+
+	tempFile := constants.FILENAME + ".tmp"
+
+	if err := os.WriteFile(tempFile, jsonData, 0644); err != nil {
+		return err
+	}
+
+	return os.Rename(tempFile, constants.FILENAME)
 }
 
 func updateTaskStatus(id int, status string) error {
