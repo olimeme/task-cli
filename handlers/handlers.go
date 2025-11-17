@@ -97,7 +97,7 @@ func HelpManual() {
 	fmt.Printf("\t%-40s %-10s\n", "delete <task ID>:", "delete the task")
 	fmt.Printf("\t%-40s %-10s\n", "mark-todo <task ID>:", "mark task to do")
 	fmt.Printf("\t%-40s %-10s\n", "mark-in-progress <task ID>:", "mark task done")
-	fmt.Printf("\t%-40s %-10s\n", "list <todo/in-progress/done>:", "list all the tasks to do/in-progress/done")
+	fmt.Printf("\t%-40s %-10s\n", "list [todo|in-progress|done]:", "list all the tasks to do/in-progress/done")
 }
 
 func AddTask(description string) error {
@@ -166,50 +166,29 @@ func DeleteTask(id int) error {
 }
 
 func ListTasksByStatus(status string) ([]map[string]interface{}, error) {
-	valid := map[string]bool{
-		"todo":        true,
-		"in-progress": true,
-		"done":        true,
+	data, err := loadTasks()
+	if err != nil {
+		return nil, err
 	}
 
-	if !valid[status] {
+	if status == "" {
+		return data["tasks"], nil
+	}
+
+	valid := map[string]string{
+		"todo":        "to do",
+		"in-progress": "in progress",
+		"done":        "done",
+	}
+
+	mappedStatus, ok := valid[status]
+	if !ok {
 		return nil, fmt.Errorf("invalid list argument: %s (allowed: todo, in-progress, done)", status)
-	}
-
-	jsonFile, err := os.Open(constants.FILENAME)
-	if err != nil {
-		return nil, err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return nil, err
-	}
-
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err = json.Unmarshal(byteValue, &data); err != nil {
-			return nil, err
-		}
 	}
 
 	filtered := []map[string]interface{}{}
 	for _, task := range data["tasks"] {
-		taskStatus := task["status"].(string)
-
-		if status == "todo" && taskStatus == "to do" {
-			filtered = append(filtered, task)
-		}
-
-		if status == "in-progress" && taskStatus == "in progress" {
-			filtered = append(filtered, task)
-		}
-
-		if status == "done" && taskStatus == "done" {
+		if task["status"] == mappedStatus {
 			filtered = append(filtered, task)
 		}
 	}
