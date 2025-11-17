@@ -10,6 +10,62 @@ import (
 	"github.com/olimeme/constants"
 )
 
+func loadTasks() (map[string][]map[string]interface{}, error) {
+	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		return nil, err
+	}
+
+	data := map[string][]map[string]interface{}{
+		"tasks": {},
+	}
+
+	if len(byteValue) > 0 {
+		if err := json.Unmarshal(byteValue, &data); err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
+}
+
+func saveTasks(data map[string][]map[string]interface{}) error {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+}
+
+func updateTaskStatus(id int, status string) error {
+	data, err := loadTasks()
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for _, task := range data["tasks"] {
+		if int(task["id"].(float64)) == id {
+			task["status"] = status
+			task["updatedAt"] = time.Now()
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("task with ID %d not found", id)
+	}
+
+	return saveTasks(data)
+}
+
 func HelpManual() {
 	fmt.Printf("Usage:\n\n\t%s <command> \n\n", constants.PROGRAM_PREFIX)
 
@@ -23,114 +79,51 @@ func HelpManual() {
 }
 
 func AddTask(description string) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
+	data, err := loadTasks()
 	if err != nil {
 		return err
 	}
 
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
+	newTask := map[string]interface{}{
+		"id":          len(data["tasks"]) + 1,
+		"description": description,
+		"status":      "to do",
+		"createdAt":   time.Now(),
+		"updatedAt":   time.Now(),
 	}
-
-	if len(byteValue) > 0 {
-		err = json.Unmarshal(byteValue, &data)
-		if err != nil {
-			return err
-		}
-	}
-
-	newTask := map[string]interface{}{}
-	newTask["id"] = len(data["tasks"]) + 1
-	newTask["description"] = description
-	newTask["status"] = "to do"
-	newTask["createdAt"] = time.Now()
-	newTask["updatedAt"] = time.Now()
 
 	data["tasks"] = append(data["tasks"], newTask)
 
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(constants.FILENAME, jsonData, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return saveTasks(data)
 }
 
 func UpdateTask(id int, description string) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
+	data, err := loadTasks()
 	if err != nil {
 		return err
 	}
 
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err = json.Unmarshal(byteValue, &data); err != nil {
-			return err
-		}
-	}
-
-	updated := false
+	found := false
 	for _, task := range data["tasks"] {
 		if int(task["id"].(float64)) == id {
 			task["description"] = description
 			task["updatedAt"] = time.Now()
-			updated = true
+			found = true
 			break
 		}
 	}
 
-	if !updated {
+	if !found {
 		return fmt.Errorf("task with ID %d not found", id)
 	}
 
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+	return saveTasks(data)
 }
 
 func DeleteTask(id int) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_RDWR, 0644)
+	data, err := loadTasks()
 	if err != nil {
 		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return err
-	}
-
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err = json.Unmarshal(byteValue, &data); err != nil {
-			return err
-		}
 	}
 
 	index := -1
@@ -147,12 +140,7 @@ func DeleteTask(id int) error {
 
 	data["tasks"] = append(data["tasks"][:index], data["tasks"][index+1:]...)
 
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+	return saveTasks(data)
 }
 
 func ListTasksByStatus(status string) ([]map[string]interface{}, error) {
@@ -208,133 +196,13 @@ func ListTasksByStatus(status string) ([]map[string]interface{}, error) {
 }
 
 func MarkTodo(id int) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return err
-	}
-
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err := json.Unmarshal(byteValue, &data); err != nil {
-			return err
-		}
-	}
-
-	updated := false
-	for _, task := range data["tasks"] {
-		if int(task["id"].(float64)) == id {
-			task["status"] = "to do"
-			task["updatedAt"] = time.Now()
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("task with ID %d not found", id)
-	}
-
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+	return updateTaskStatus(id, "to do")
 }
 
 func MarkInProgress(id int) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return err
-	}
-
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err := json.Unmarshal(byteValue, &data); err != nil {
-			return err
-		}
-	}
-
-	updated := false
-	for _, task := range data["tasks"] {
-		if int(task["id"].(float64)) == id {
-			task["status"] = "in progress"
-			task["updatedAt"] = time.Now()
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("task with ID %d not found", id)
-	}
-
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+	return updateTaskStatus(id, "in progress")
 }
 
 func MarkDone(id int) error {
-	jsonFile, err := os.OpenFile(constants.FILENAME, os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer jsonFile.Close()
-
-	byteValue, err := io.ReadAll(jsonFile)
-	if err != nil {
-		return err
-	}
-
-	data := map[string][]map[string]interface{}{
-		"tasks": {},
-	}
-
-	if len(byteValue) > 0 {
-		if err := json.Unmarshal(byteValue, &data); err != nil {
-			return err
-		}
-	}
-
-	updated := false
-	for _, task := range data["tasks"] {
-		if int(task["id"].(float64)) == id {
-			task["status"] = "done"
-			task["updatedAt"] = time.Now()
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("task with ID %d not found", id)
-	}
-
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(constants.FILENAME, jsonData, 0644)
+	return updateTaskStatus(id, "done")
 }
